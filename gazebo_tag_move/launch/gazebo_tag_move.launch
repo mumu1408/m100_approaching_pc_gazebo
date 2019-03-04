@@ -1,0 +1,4 @@
+<launch>
+    <node name="gazebo_tag_move" pkg="gazebo_tag_move" type="gazebo_tag_move" output="screen" />
+    <node name="keyboard_tag_move" pkg="gazebo_tag_move" type="keyboard_tag_move.py" output="screen" />
+</launch>

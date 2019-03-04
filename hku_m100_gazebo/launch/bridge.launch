@@ -1,0 +1,7 @@
+<launch>
+
+  <node pkg="hku_m100_gazebo" type="hku_m100_pcsim_gazebo_bridge" name="hku_m100_pcsim_gazebo_bridge" />
+  <include file="$(find apriltags)/launch/gazebo_cam_apriltags.launch" />
+  <include file="$(find gazebo_tag_move)/launch/gazebo_tag_move.launch" />
+  
+</launch>

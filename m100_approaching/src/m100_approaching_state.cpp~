@@ -49,7 +49,7 @@ int main(int argc, char **argv)
         state_pitch_incameraframe_pub.publish(state_pitch_incameraframe_msg);
         state_yaw_incameraframe_pub.publish(state_yaw_incameraframe_msg);
 
-        //std::cout << "pid state published." << std::endl;
+        std::cout << "pid state published." << std::endl;
 
         loop_rate.sleep();
     }

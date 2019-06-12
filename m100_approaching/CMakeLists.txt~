@@ -236,12 +236,3 @@ add_dependencies(yaw_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_
 target_link_libraries(yaw_test
   ${catkin_LIBRARIES}
 )
-
-
-add_executable(roll_control_test
-  src/roll_control_test.cpp
-)
-add_dependencies(roll_control_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(roll_control_test
-  ${catkin_LIBRARIES}
-)

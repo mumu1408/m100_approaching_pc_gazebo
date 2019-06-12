@@ -20,6 +20,7 @@
 #include <iterator>
 #include <string>
 #include <iostream>
+#include <fstream>
 
 ros::Subscriber cameraframe_x_velocity_control_sub;
 ros::Subscriber cameraframe_y_velocity_control_sub;
@@ -48,6 +49,11 @@ double gimbal_roll;
 double gimbal_pitch;
 double gimbal_yaw;
 
+double drone_yaw;
+double gimbal_yaw_wrt_drone;
+
+std::ofstream fout;
+
 void cameraframe_x_velocity_control_effort_callback(std_msgs::Float64 cameraframe_x_velocity_control_effort_msg)
 {
     cameraframe_x_velocity_control_effort = cameraframe_x_velocity_control_effort_msg.data;
@@ -66,17 +72,17 @@ void cameraframe_z_velocity_control_effort_callback(std_msgs::Float64 camerafram
 void cameraframe_roll_velocity_control_effort_callback(std_msgs::Float64 cameraframe_roll_velocity_control_effort_msg)
 {
     cameraframe_roll_velocity_control_effort = cameraframe_roll_velocity_control_effort_msg.data;
-    std::cout << "cameraframe_roll_velocity_control_effort: " << cameraframe_roll_velocity_control_effort << std::endl;
+    //std::cout << "cameraframe_roll_velocity_control_effort: " << cameraframe_roll_velocity_control_effort << std::endl;
 }
 void cameraframe_pitch_velocity_control_effort_callback(std_msgs::Float64 cameraframe_pitch_velocity_control_effort_msg)
 {
     cameraframe_pitch_velocity_control_effort = cameraframe_pitch_velocity_control_effort_msg.data;
-    std::cout << "cameraframe_pitch_velocity_control_effort: " << cameraframe_pitch_velocity_control_effort << std::endl;
+    //std::cout << "cameraframe_pitch_velocity_control_effort: " << cameraframe_pitch_velocity_control_effort << std::endl;
 }
 void cameraframe_yaw_velocity_control_effort_callback(std_msgs::Float64 cameraframe_yaw_velocity_control_effort_msg)
 {
     cameraframe_yaw_velocity_control_effort = cameraframe_yaw_velocity_control_effort_msg.data;
-    std::cout << "cameraframe_yaw_velocity_control_effort: " << cameraframe_yaw_velocity_control_effort << std::endl;
+    //std::cout << "cameraframe_yaw_velocity_control_effort: " << cameraframe_yaw_velocity_control_effort << std::endl;
 }
 
 void gimbal_ori_callback(const dji_sdk::Gimbal::ConstPtr& gimbal_ori_msg)
@@ -92,7 +98,11 @@ void drone_local_position_callback(const dji_sdk::LocalPosition::ConstPtr& drone
 }
 void drone_quaternion_callback(const dji_sdk::AttitudeQuaternion::ConstPtr& drone_quaternion_msg)
 {
+    Eigen::Quaternion<double> quaternion = Eigen::Quaternion<double>(drone_quaternion_msg->q0, drone_quaternion_msg->q1, drone_quaternion_msg->q2, drone_quaternion_msg->q3);
 
+    drone_yaw = atan2(2*(quaternion.w() * quaternion.z() + quaternion.x() * quaternion.y()), 1 - 2 * (quaternion.y() * quaternion.y() + quaternion.z() * quaternion.z()));
+    drone_yaw = drone_yaw / M_PI * 180;
+    std::cout << "drone_yaw: " << drone_yaw << std::endl;
 }
 void drone_global_position_callback(const dji_sdk::GlobalPosition::ConstPtr& drone_global_position_msg)
 {
@@ -103,6 +113,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "m100_approaching_velocity_controller");
     ros::NodeHandle nh;
+    fout.open("/home/ubuntu/m100_sim/catkin_ws/src/m100_approaching/log.txt", std::ios::app);
 
     cameraframe_x_velocity_control_sub = nh.subscribe("/m100_approaching/cameraframe_x_velocity_control_effort", 10, cameraframe_x_velocity_control_effort_callback);
     cameraframe_y_velocity_control_sub = nh.subscribe("/m100_approaching/cameraframe_y_velocity_control_effort", 10, cameraframe_y_velocity_control_effort_callback);
@@ -155,9 +166,34 @@ int main(int argc, char **argv)
         ROS_ERROR("Velocity controller: request control failed!");
     }
 
+    ros::Rate loop_rate(100);
     while(ros::ok())
     {
         ros::spinOnce();
+
+        /*
+        gimbal_yaw = gimbal_yaw / M_PI * 180;
+        if (drone_yaw < 0)
+            drone_yaw = 360 + drone_yaw;
+        //std::cout << "drone_yaw modified: " << drone_yaw << std::endl;
+        if (gimbal_yaw < 0)
+            gimbal_yaw = 360 + gimbal_yaw;
+        //std::cout << "gimbal_yaw modified: " << gimbal_yaw << std::endl;
+        gimbal_yaw_wrt_drone = gimbal_yaw - drone_yaw;
+        //std::cout << "gimbal_yaw - drone_yaw: " << gimbal_yaw_wrt_drone << std::endl;
+        if (gimbal_yaw_wrt_drone <= 360 && gimbal_yaw_wrt_drone > 180)
+        {
+            gimbal_yaw_wrt_drone = -(360 - gimbal_yaw_wrt_drone);
+            //std::cout << "180.0 < gimbal_yaw_wrt_drone <= 360.0" << std::endl;
+        }
+
+        else if (gimbal_yaw_wrt_drone <= -180 && gimbal_yaw_wrt_drone >= -360)
+        {
+            gimbal_yaw_wrt_drone = 360 + gimbal_yaw_wrt_drone;
+            //std::cout << "-360.0 <= gimbal_yaw_wrt_drone <= -180.0" << std::endl;
+        }
+        std::cout << "gimbal_yaw_wrt_drone: " << gimbal_yaw_wrt_drone << std::endl;
+        */
 
         //将相机坐标系的速度转换到云台角速度和飞机线速度
         cameraframe_angular_speed << cameraframe_roll_velocity_control_effort, cameraframe_pitch_velocity_control_effort, cameraframe_yaw_velocity_control_effort;
@@ -182,12 +218,19 @@ int main(int argc, char **argv)
         drone_velocity = camera_to_drone_rotation * cameraframe_linear_speed;
 
         //debug 
-        std::cout << "drone_velocity_x: " << drone_velocity(0) << std::endl;
-        std::cout << "drone_velocity_y: " << drone_velocity(1) << std::endl;
-        std::cout << "drone_velocity_z: " << drone_velocity(2) << std::endl;
-        std::cout << "gimbal_mediumaxis_roll_speed: " << gimbal_mediumaxis_roll_speed << std::endl;
-        std::cout << "gimbal_inneraxis_pitch_speed: " << gimbal_inneraxis_pitch_speed << std::endl;
-        std::cout << "gimbal_outeraxis_yaw_speed: " << gimbal_outeraxis_yaw_speed << std::endl;
+        std::cout << "drone_velocity_x: " << drone_velocity(0) << "m/s" << std::endl;
+        std::cout << "drone_velocity_y: " << drone_velocity(1) << "m/s" << std::endl;
+        std::cout << "drone_velocity_z: " << drone_velocity(2) << "m/s" << std::endl;
+        std::cout << "gimbal_mediumaxis_roll_speed: " << gimbal_mediumaxis_roll_speed * 0.1 << "degree/s" << std::endl;
+        std::cout << "gimbal_inneraxis_pitch_speed: " << gimbal_inneraxis_pitch_speed * 0.1 << "degree/s" << std::endl;
+        std::cout << "gimbal_outeraxis_yaw_speed: " << gimbal_outeraxis_yaw_speed * 0.1 << "degree/s" << std::endl;
+
+        fout << "drone_velocity_x: " << drone_velocity(0) << "m/s" << std::endl;
+        fout << "drone_velocity_y: " << drone_velocity(1) << "m/s" << std::endl;
+        fout << "drone_velocity_z: " << drone_velocity(2) << "m/s" << std::endl;
+        fout << "gimbal_mediumaxis_roll_speed: " << gimbal_mediumaxis_roll_speed * 0.1 << "degree/s" << std::endl;
+        fout << "gimbal_inneraxis_pitch_speed: " << gimbal_inneraxis_pitch_speed * 0.1 << "degree/s" << std::endl;
+        fout << "gimbal_outeraxis_yaw_speed: " << gimbal_outeraxis_yaw_speed * 0.1 << "degree/s" << std::endl;
 
 
 
@@ -210,7 +253,10 @@ int main(int argc, char **argv)
         {
             ROS_ERROR("Velocity controller: gimbal speed control failed!");
         }
+        loop_rate.sleep();
     }
+
+    fout.close();
     sdk_permission_control.request.control_enable = 0;
     sdk_permission_control_service.call(sdk_permission_control);
 }

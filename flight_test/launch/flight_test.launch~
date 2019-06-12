@@ -1,0 +1,11 @@
+<launch>        
+
+  <node pkg="flight_test" type="request_control" name="request_control" output="screen">
+  </node>
+
+  <node pkg="flight_test" type="flight_test" name="flight_test" output="screen">
+    <param name="~f_speed" value="0.4" />
+
+    <param name="~f_time" value="4" />
+  </node>
+</launch>
